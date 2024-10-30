@@ -34,6 +34,7 @@ builder.Services.AddAuthentication(options =>
 });
 
 builder.Services.AddScoped<IAuthenticationSevice, AuthenticationSevice>();
+builder.Services.AddScoped<IGenreService, GenreService>();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     options.UseSqlServer(builder.Configuration.GetConnectionString("_cn"));
