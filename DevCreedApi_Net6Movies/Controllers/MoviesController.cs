@@ -1,5 +1,6 @@
 ﻿using DevCreedApi_Net6Movies.Dtos;
 using DevCreedApi_Net6Movies.Models;
+using DevCreedApi_Net6Movies.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,34 +12,18 @@ namespace DevCreedApi_Net6Movies.Controllers
     public class MoviesController : ControllerBase
     {
         #region
-        private readonly ApplicationDbContext _context;
+        private readonly IMovieService _movieService;
+        private readonly IGenreService _genreService;
 
-        public MoviesController(ApplicationDbContext db)
+        public MoviesController(IMovieService  movieService, IGenreService genreService )
         {
-            _context = db;
+            _movieService = movieService;
+            _genreService = genreService;
         }
         #endregion
 
-        //by using anonymous object and select function i could choose genreName without DTo 
-        [HttpGet]
-        public async Task<IActionResult> Getall()
-        {
-            //select by new anynonmous object
-            var movie = await _context.Movies.Include(x => x.Genre)
-                .Select(x => new
-                {
-                    myid = x.Id,
-                    mytitle = x.Title,
-                    myyear = x.Year,
-                    rate = x.Rate,
-                    //myimage=x.Poster,
-                    mystorline = x.StoreLine,
-                    genreid = x.GenreID,
-                    mygenreName_from_anynomousobject = x.Genre.Name
-                }).OrderByDescending(x => x.rate)
-                .ToListAsync();
-            return Ok(movie);
-        }
+
+
 
         //FromDtO
 
@@ -63,23 +48,23 @@ namespace DevCreedApi_Net6Movies.Controllers
         ////}
 
 
+        [HttpGet]
+        public async Task<IActionResult> Getall()
+        {
+            //select by new anynonmous object
+            var movies = await _movieService.GetAll();
+            return Ok(movies);
+        }
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(int id) {
-
-            //var mov = await _context.Movies.FindAsync(id);
-            //if (mov == null)
-            //{ return NotFound($"the id={id}  not found......  try again! "); }
-            // return Ok(mov);
-
-
-            //my Idea [praise To Allah]
-            bool IsValid= await _context.Movies.AnyAsync(x=>x.Id==id);
+        public async Task<IActionResult> GetById(int id)
+        {
+            bool IsValid = await _movieService.IsExistMovie(id);
 
             if (!IsValid)
                 return NotFound($"the id={id}  not found...  try again! ");
 
-            var movie =await _context.Movies.Include(x=>x.Genre).SingleOrDefaultAsync(x => x.Id == id);
+            var movie = await _movieService.GetByIdl(id);
 
             byte[] x = new byte[0];
             var dto = new DtoMovieDetails
@@ -111,11 +96,11 @@ namespace DevCreedApi_Net6Movies.Controllers
             if (dto.Poster.Length > maxsize)
                 return BadRequest("size is too large");
 
-            ////my Idea Praise To allah
+       
             //if(dto.GenreID<0 && dto.GenreID>10)
             //    return BadRequest($"Invalid GenreId ");
 
-            var isvalid = await _context.Genres.AnyAsync(x => x.Id == dto.GenreID);
+            var isvalid = await _genreService.IsValid(dto.GenreID);
             if (!isvalid)
                 return BadRequest($"Invalid GenreId ");
                 
@@ -133,8 +118,7 @@ namespace DevCreedApi_Net6Movies.Controllers
             };
 
 
-            await _context.Movies.AddAsync(movie);
-            _context.SaveChanges();
+            await _movieService.Add(movie);
 
             return Ok(movie);
         }
@@ -147,27 +131,31 @@ namespace DevCreedApi_Net6Movies.Controllers
         [HttpGet("Genre")]
         public async Task<IActionResult> GetGenre_and_relatedMovies(int id)
         {
+            #region anynonmous
+
             //select by new anynonmous object
-            var Genre = await _context.Movies.Include(x => x.Genre).Where(m=>m.GenreID==id)
-                .Select(x => new
-                {
-                    myid = x.Id,
-                    mytitle = x.Title,
-                    myyear = x.Year,
-                    rate = x.Rate,
-                    //myimage=x.Poster,
-                    mystorline = x.StoreLine,
-                    genreid = x.GenreID,
-                    mygenreName_from_anynomousobject = x.Genre.Name
-                }).OrderByDescending(x => x.rate)
-                .ToListAsync();
-            return Ok(Genre);
+            //var Genre = await _context.Movies.Include(x => x.Genre).Where(m=>m.GenreID==id)
+            //    .Select(x => new
+            //    {
+            //        myid = x.Id,
+            //        mytitle = x.Title,
+            //        myyear = x.Year,
+            //        rate = x.Rate,
+            //        //myimage=x.Poster,
+            //        mystorline = x.StoreLine,
+            //        genreid = x.GenreID,
+            //        mygenreName_from_anynomousobject = x.Genre.Name
+            //    }).OrderByDescending(x => x.rate)
+            //    .ToListAsync(); 
+            #endregion
+            var MoviesByGenreId =await _movieService.GetAll(id);
+            return Ok(MoviesByGenreId);
         }
 
 
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateMovie(int id, [FromForm] CreateMovieDto dto) {
-            var movie= await _context.Movies.FindAsync(id);
+            var movie= await _movieService.GetByIdl(id);
             if (movie == null)
             {
                 return NotFound($"No movie with id={id}");
@@ -189,7 +177,7 @@ namespace DevCreedApi_Net6Movies.Controllers
             }
 
 
-            bool isvalid = await _context.Genres.AnyAsync(x => x.Id == dto.GenreID);
+            bool isvalid = await _genreService.IsValid(dto.GenreID);
             if (!isvalid)
                 return BadRequest($"Invalid GenreId ");
 
@@ -199,7 +187,7 @@ namespace DevCreedApi_Net6Movies.Controllers
             movie.StoreLine = dto.StoreLine;
             movie.GenreID = dto.GenreID;
 
-            _context.SaveChanges();
+            _movieService.Update(movie);
 
 
             return Ok(movie);
@@ -208,13 +196,11 @@ namespace DevCreedApi_Net6Movies.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteMovie(int id)
         {
-            var movie = await _context.Movies.SingleOrDefaultAsync(x => x.Id == id);
+            var movie = await _movieService.GetByIdl(id);
             if (movie == null)
             { return NotFound($"no movie with ID= {id}"); }
 
-            _context.Movies.Remove(movie);
-            _context.SaveChanges();
-
+            _movieService.Delete(movie);         
             return StatusCode(201);
         }
     }

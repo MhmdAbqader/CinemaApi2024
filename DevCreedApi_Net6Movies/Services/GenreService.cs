@@ -45,5 +45,10 @@ namespace DevCreedApi_Net6Movies.Services
             _context.SaveChanges();
             return   genre ;
         }
+
+        public async Task<bool> IsValid(int id)
+        {
+            return await _context.Genres.AnyAsync(x => x.Id == id);
+        }
     }
 }

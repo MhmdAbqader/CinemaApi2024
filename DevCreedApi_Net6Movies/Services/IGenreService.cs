@@ -12,5 +12,9 @@ namespace DevCreedApi_Net6Movies.Services
 
         Genre Update(Genre genre);
         Genre Delete(Genre genre);
+
+        // New Function
+        Task<bool> IsValid(int id);
+
     }
 }
