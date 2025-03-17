@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="..\build\DevCreedApi_Net6Movies.props" />
+</Project>
