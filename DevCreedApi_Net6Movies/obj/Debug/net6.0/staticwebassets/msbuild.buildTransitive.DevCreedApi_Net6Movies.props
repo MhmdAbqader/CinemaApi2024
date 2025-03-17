@@ -1,3 +1,0 @@
-﻿<Project>
-  <Import Project="..\buildMultiTargeting\DevCreedApi_Net6Movies.props" />
-</Project>
